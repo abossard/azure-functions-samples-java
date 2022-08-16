@@ -6,6 +6,8 @@
 
 package com.functions;
 
+import com.azure.identity.DefaultAzureCredential;
+import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.HttpMethod;
 import com.microsoft.azure.functions.HttpRequestMessage;
@@ -15,6 +17,11 @@ import com.microsoft.azure.functions.annotation.AuthorizationLevel;
 import com.microsoft.azure.functions.annotation.FixedDelayRetry;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.HttpTrigger;
+import com.microsoft.graph.authentication.TokenCredentialAuthProvider;
+import com.microsoft.graph.models.User;
+import com.microsoft.graph.requests.ApplicationCollectionPage;
+import com.microsoft.graph.requests.GraphServiceClient;
+import com.microsoft.graph.requests.UserRequestBuilder;
 
 import java.util.Optional;
 
@@ -36,16 +43,17 @@ public class Function {
                 HttpRequestMessage<Optional<String>> request,
             final ExecutionContext context) {
         context.getLogger().info("Java HTTP trigger processed a request.");
+        DefaultAzureCredential credential = new DefaultAzureCredentialBuilder().build();
+
+        final GraphServiceClient graphClient = GraphServiceClient
+            .builder()
+            .authenticationProvider(new TokenCredentialAuthProvider(credential))
+            .buildClient();
+        ApplicationCollectionPage result = graphClient.applications().buildRequest().get();
 
         // Parse query parameter
-        final String query = request.getQueryParameters().get("name");
-        final String name = request.getBody().orElse(query);
 
-        if (name == null) {
-            return request.createResponseBuilder(HttpStatus.BAD_REQUEST).body("Please pass a name on the query string or in the request body").build();
-        } else {
-            return request.createResponseBuilder(HttpStatus.OK).body("Hello, " + name).build();
-        }
+        return request.createResponseBuilder(HttpStatus.OK).body(result.getCount()).build();
     }
 
     public static int count = 1;
@@ -69,16 +77,18 @@ public class Function {
             count ++;
             throw new Exception("error");
         }
+        DefaultAzureCredential credential = new DefaultAzureCredentialBuilder().build();
+
+        final GraphServiceClient graphClient = GraphServiceClient
+            .builder()
+            .authenticationProvider(new TokenCredentialAuthProvider(credential))
+            .buildClient();
+        ApplicationCollectionPage result = graphClient.applications().buildRequest().get();
 
         // Parse query parameter
-        final String query = request.getQueryParameters().get("name");
-        final String name = request.getBody().orElse(query);
 
-        if (name == null) {
-            return request.createResponseBuilder(HttpStatus.BAD_REQUEST).body("Please pass a name on the query string or in the request body").build();
-        } else {
-            return request.createResponseBuilder(HttpStatus.OK).body(name).build();
-        }
+        return request.createResponseBuilder(HttpStatus.OK).body(result.getCurrentPage().stream().count()).build();
+
     }
 
     /**
